@@ -1,6 +1,6 @@
 # Flight Ticket Booking API
 
-A RESTful flight ticket booking system built with Spring Boot, featuring per-seat tracking, concurrent booking safety, and strategy-based seat allocation.
+A RESTful flight ticket booking system built with Spring Boot, featuring per-seat tracking, concurrent booking safety, strategy-based seat allocation, and integrated payment processing.
 
 ## How to Run
 
@@ -26,7 +26,21 @@ mvn spring-boot:run
 
 ## Example Curl Requests
 
-### Successful Booking (201 Created)
+### Booking & Payment Flow
+
+Booking is a two-step process:
+1. **Create booking** — seats are reserved, status is `PENDING_PAYMENT`, a 10-minute payment deadline is set
+2. **Process payment** — pay via UPI, CARD, or GIFT_CARD to confirm the booking
+
+If payment is not completed within the deadline, the booking is automatically cancelled and seats are released.
+
+```
+PENDING_PAYMENT ──pay success──→ CONFIRMED
+PENDING_PAYMENT ──pay failure──→ PAYMENT_FAILED (seats released)
+PENDING_PAYMENT ──timeout───────→ CANCELLED     (seats released)
+```
+
+### Step 1: Create Booking (201 Created)
 ```bash
 curl -X POST http://localhost:8080/api/v1/bookings \
   -H "Content-Type: application/json" \
@@ -37,6 +51,40 @@ curl -X POST http://localhost:8080/api/v1/bookings \
     "numberOfSeats": 2
   }'
 ```
+Response includes `bookingId`, `status: "PENDING_PAYMENT"`, and `paymentDeadline`.
+
+### Step 2: Process Payment (200 OK)
+
+**Pay with UPI:**
+```bash
+curl -X POST http://localhost:8080/api/v1/bookings/{bookingId}/payments \
+  -H "Content-Type: application/json" \
+  -d '{
+    "paymentMethod": "UPI",
+    "upiId": "john@okbank"
+  }'
+```
+
+**Pay with Card:**
+```bash
+curl -X POST http://localhost:8080/api/v1/bookings/{bookingId}/payments \
+  -H "Content-Type: application/json" \
+  -d '{
+    "paymentMethod": "CARD",
+    "cardNumber": "4111111111111111"
+  }'
+```
+
+**Pay with Gift Card:**
+```bash
+curl -X POST http://localhost:8080/api/v1/bookings/{bookingId}/payments \
+  -H "Content-Type: application/json" \
+  -d '{
+    "paymentMethod": "GIFT_CARD",
+    "giftCardCode": "GIFT12345678"
+  }'
+```
+Response includes `paymentStatus: "SUCCESS"`, `bookingStatus: "CONFIRMED"`, and `transactionReference`.
 
 ### Booking with Seat Preference (201 Created)
 ```bash
@@ -108,6 +156,42 @@ curl -X POST http://localhost:8080/api/v1/bookings \
   }'
 ```
 
+### Payment — Booking Not Found (404)
+```bash
+curl -X POST http://localhost:8080/api/v1/bookings/00000000-0000-0000-0000-000000000000/payments \
+  -H "Content-Type: application/json" \
+  -d '{"paymentMethod": "UPI", "upiId": "user@upi"}'
+```
+
+### Payment — Already Confirmed (400)
+```bash
+# Pay for an already-confirmed booking
+curl -X POST http://localhost:8080/api/v1/bookings/{bookingId}/payments \
+  -H "Content-Type: application/json" \
+  -d '{"paymentMethod": "UPI", "upiId": "user@upi"}'
+```
+
+### Payment — Invalid Payment Details (400)
+```bash
+# Missing UPI ID
+curl -X POST http://localhost:8080/api/v1/bookings/{bookingId}/payments \
+  -H "Content-Type: application/json" \
+  -d '{"paymentMethod": "UPI"}'
+
+# Invalid card number
+curl -X POST http://localhost:8080/api/v1/bookings/{bookingId}/payments \
+  -H "Content-Type: application/json" \
+  -d '{"paymentMethod": "CARD", "cardNumber": "123"}'
+```
+
+### Payment — Expired Booking (410 Gone)
+If the 10-minute payment deadline has passed, the booking is cancelled and seats are released:
+```bash
+curl -X POST http://localhost:8080/api/v1/bookings/{expiredBookingId}/payments \
+  -H "Content-Type: application/json" \
+  -d '{"paymentMethod": "UPI", "upiId": "user@upi"}'
+```
+
 ### Add a New Flight (201 Created)
 ```bash
 curl -X POST http://localhost:8080/api/v1/flights \
@@ -149,6 +233,16 @@ Seat preference (WINDOW/AISLE/MIDDLE) is **user-driven** — passed as an option
 
 `SeatValidationStrategy` separates availability checking from allocation, making validation rules independently swappable.
 
+### Payment Integration with State Machine
+Bookings follow a clear state machine: `PENDING_PAYMENT → CONFIRMED | PAYMENT_FAILED | CANCELLED`. This two-step flow (reserve seats, then pay) prevents scenarios where seats are allocated but never paid for. Key design choices:
+
+- **10-minute payment deadline** — seats are held temporarily; if payment isn't completed, a `@Scheduled` task (every 30s) cancels the booking and releases seats back to `AVAILABLE`
+- **Per-booking ReentrantLock** in `PaymentService` — prevents double-payment race conditions (two concurrent pay requests for the same booking)
+- **Seat release on failure/expiry** — `PAYMENT_FAILED` and `CANCELLED` states trigger immediate seat release, ensuring no phantom bookings hold seats indefinitely
+
+### Strategy Pattern for Payment Processing
+`PaymentProcessor` interface with three implementations (`UpiPaymentProcessor`, `CardPaymentProcessor`, `GiftCardPaymentProcessor`). Each processor handles its own validation (UPI ID format, card number length, gift card code) and payment simulation. Processors are auto-discovered via Spring's `List<PaymentProcessor>` injection and indexed by `PaymentMethod` in a map for O(1) lookup. Adding a new payment method (e.g., NetBanking, Wallet) requires only a new `@Component` implementing `PaymentProcessor`.
+
 ### Factory for Booking Creation
 `BookingFactory` encapsulates UUID generation, price computation, timestamp setting, and status assignment. Keeps the service focused on orchestration rather than object construction.
 
@@ -158,9 +252,12 @@ Each seat has a label (e.g., "3C") and a status (`AVAILABLE`/`BOOKED`) in a `Lin
 ## What I'd Improve With More Time
 
 - Database persistence with Spring Data JPA + H2/PostgreSQL
-- Booking cancellation and refund endpoints (mark seats back to `AVAILABLE`)
+- Real payment gateway integration (Razorpay, Stripe) replacing simulated processors
+- Payment retry with idempotency keys to handle transient failures
+- Booking cancellation and refund endpoints (mark seats back to `AVAILABLE`, reverse payment)
 - `GET /api/v1/bookings/{bookingId}` for retrieval
 - `GET /api/v1/flights/{flightNumber}/seats` for seat map visualization
+- `GET /api/v1/bookings/{bookingId}/payments` for payment status check
 - API documentation with Swagger/OpenAPI (springdoc-openapi)
 - Rate limiting with Bucket4j or Resilience4j
 - Pagination for future list endpoints
@@ -168,3 +265,4 @@ Each seat has a label (e.g., "3C") and a status (`AVAILABLE`/`BOOKED`) in a `Lin
 - Containerization with Dockerfile and docker-compose
 - CI/CD pipeline with GitHub Actions
 - Request/response logging with MDC correlation IDs
+- Webhook/callback support for async payment notifications
