@@ -21,7 +21,7 @@ class EdgeCaseTest {
 
     @Test
     void zeroSeats_returns400() throws Exception {
-        BookingRequest request = new BookingRequest("EK502", "John", "john@edge.com", 0);
+        BookingRequest request = new BookingRequest("EK502", "John", "john@edge.com", 0, null);
         mockMvc.perform(post("/api/v1/bookings")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -30,7 +30,7 @@ class EdgeCaseTest {
 
     @Test
     void negativeSeats_returns400() throws Exception {
-        BookingRequest request = new BookingRequest("EK502", "John", "john@neg.com", -1);
+        BookingRequest request = new BookingRequest("EK502", "John", "john@neg.com", -1, null);
         mockMvc.perform(post("/api/v1/bookings")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -39,7 +39,7 @@ class EdgeCaseTest {
 
     @Test
     void blankName_returns400() throws Exception {
-        BookingRequest request = new BookingRequest("EK502", "", "john@blank.com", 1);
+        BookingRequest request = new BookingRequest("EK502", "", "john@blank.com", 1, null);
         mockMvc.perform(post("/api/v1/bookings")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -48,7 +48,7 @@ class EdgeCaseTest {
 
     @Test
     void invalidEmail_returns400() throws Exception {
-        BookingRequest request = new BookingRequest("EK502", "John", "not-an-email", 1);
+        BookingRequest request = new BookingRequest("EK502", "John", "not-an-email", 1, null);
         mockMvc.perform(post("/api/v1/bookings")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -66,7 +66,7 @@ class EdgeCaseTest {
     @Test
     void seatsExceedTotalSeats_returns409() throws Exception {
         // UK833 has 12 total seats
-        BookingRequest request = new BookingRequest("UK833", "Big Group", "big@group.com", 100);
+        BookingRequest request = new BookingRequest("UK833", "Big Group", "big@group.com", 100, null);
         mockMvc.perform(post("/api/v1/bookings")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -76,7 +76,7 @@ class EdgeCaseTest {
 
     @Test
     void whitespaceOnlyName_returns400() throws Exception {
-        BookingRequest request = new BookingRequest("EK502", "   ", "ws@test.com", 1);
+        BookingRequest request = new BookingRequest("EK502", "   ", "ws@test.com", 1, null);
         mockMvc.perform(post("/api/v1/bookings")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))

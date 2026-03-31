@@ -13,6 +13,7 @@ import com.flightbooking.model.request.BookingRequest;
 import com.flightbooking.model.response.BookingResponse;
 import com.flightbooking.repository.BookingRepository;
 import com.flightbooking.repository.FlightRepository;
+import com.flightbooking.strategy.PreferredSeatAllocationStrategy;
 import com.flightbooking.strategy.SeatAllocationStrategy;
 import com.flightbooking.strategy.SeatValidationStrategy;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +41,7 @@ class BookingServiceImplTest {
     @Mock private BookingRepository bookingRepository;
     @Mock private SeatValidationStrategy seatValidationStrategy;
     @Mock private SeatAllocationStrategy seatAllocationStrategy;
+    @Mock private PreferredSeatAllocationStrategy preferredSeatAllocationStrategy;
     @Mock private BookingFactory bookingFactory;
     @Mock private BookingMapper bookingMapper;
 
@@ -60,7 +62,7 @@ class BookingServiceImplTest {
                 .build();
         flight.generateSeatMap();
 
-        request = new BookingRequest("EK502", "John Doe", "john@example.com", 2);
+        request = new BookingRequest("EK502", "John Doe", "john@example.com", 2, null);
     }
 
     @Test
@@ -93,7 +95,7 @@ class BookingServiceImplTest {
     @Test
     void bookFlight_flightNotFound_throwsException() {
         when(flightRepository.findByFlightNumber("EK999")).thenReturn(Optional.empty());
-        BookingRequest req = new BookingRequest("EK999", "John", "john@example.com", 1);
+        BookingRequest req = new BookingRequest("EK999", "John", "john@example.com", 1, null);
 
         assertThatThrownBy(() -> bookingService.bookFlight(req))
                 .isInstanceOf(FlightNotFoundException.class)
@@ -107,7 +109,7 @@ class BookingServiceImplTest {
         doThrow(new InsufficientSeatsException("Insufficient seats: requested 50, available 12"))
                 .when(seatValidationStrategy).validate(flight, 50);
 
-        BookingRequest req = new BookingRequest("EK502", "John", "john@example.com", 50);
+        BookingRequest req = new BookingRequest("EK502", "John", "john@example.com", 50, null);
 
         assertThatThrownBy(() -> bookingService.bookFlight(req))
                 .isInstanceOf(InsufficientSeatsException.class)
@@ -186,7 +188,7 @@ class BookingServiceImplTest {
         when(bookingRepository.save(any())).thenReturn(booking);
         when(bookingMapper.toResponse(any())).thenReturn(response);
 
-        BookingRequest req = new BookingRequest("EK502", "John", "john@example.com", 1);
+        BookingRequest req = new BookingRequest("EK502", "John", "john@example.com", 1, null);
         BookingResponse result = bookingService.bookFlight(req);
 
         assertThat(result.bookingId()).isNotNull();
@@ -209,7 +211,7 @@ class BookingServiceImplTest {
         when(bookingRepository.save(any())).thenReturn(booking);
         when(bookingMapper.toResponse(any())).thenReturn(response);
 
-        BookingRequest req = new BookingRequest("EK502", "John", "john@example.com", 3);
+        BookingRequest req = new BookingRequest("EK502", "John", "john@example.com", 3, null);
         BookingResponse result = bookingService.bookFlight(req);
 
         assertThat(result.allocatedSeats()).hasSize(3);

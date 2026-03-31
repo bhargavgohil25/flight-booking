@@ -11,6 +11,7 @@ import com.flightbooking.model.request.BookingRequest;
 import com.flightbooking.model.response.BookingResponse;
 import com.flightbooking.repository.BookingRepository;
 import com.flightbooking.repository.FlightRepository;
+import com.flightbooking.strategy.PreferredSeatAllocationStrategy;
 import com.flightbooking.strategy.SeatAllocationStrategy;
 import com.flightbooking.strategy.SeatValidationStrategy;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,7 @@ public class BookingServiceImpl implements BookingService {
     private final BookingRepository bookingRepository;
     private final SeatValidationStrategy seatValidationStrategy;
     private final SeatAllocationStrategy seatAllocationStrategy;
+    private final PreferredSeatAllocationStrategy preferredSeatAllocationStrategy;
     private final BookingFactory bookingFactory;
     private final BookingMapper bookingMapper;
 
@@ -51,7 +53,9 @@ public class BookingServiceImpl implements BookingService {
 
             seatValidationStrategy.validate(flight, request.numberOfSeats());
 
-            List<String> allocatedSeats = seatAllocationStrategy.allocateSeats(flight, request.numberOfSeats());
+            List<String> allocatedSeats = request.seatPreference() != null
+                    ? preferredSeatAllocationStrategy.allocateSeats(flight, request.numberOfSeats(), request.seatPreference())
+                    : seatAllocationStrategy.allocateSeats(flight, request.numberOfSeats());
 
             for (String seat : allocatedSeats) {
                 flight.getSeatMap().put(seat, SeatStatus.BOOKED);

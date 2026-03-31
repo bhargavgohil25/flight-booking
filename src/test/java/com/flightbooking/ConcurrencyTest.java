@@ -59,7 +59,7 @@ class ConcurrencyTest {
                 try {
                     startLatch.await();
                     BookingRequest request = new BookingRequest(
-                            "RACE01", "Passenger " + idx, "p" + idx + "@test.com", 1);
+                            "RACE01", "Passenger " + idx, "p" + idx + "@test.com", 1, null);
                     BookingResponse response = bookingService.bookFlight(request);
                     successCount.incrementAndGet();
                     successfulBookings.add(response);
@@ -129,7 +129,7 @@ class ConcurrencyTest {
                 try {
                     startLatch.await();
                     BookingRequest request = new BookingRequest(
-                            "RACE02", "Passenger " + idx, "multi" + idx + "@test.com", 2);
+                            "RACE02", "Passenger " + idx, "multi" + idx + "@test.com", 2, null);
                     bookingService.bookFlight(request);
                     successCount.incrementAndGet();
                 } catch (Exception e) {

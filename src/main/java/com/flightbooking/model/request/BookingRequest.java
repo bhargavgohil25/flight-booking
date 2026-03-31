@@ -1,5 +1,6 @@
 package com.flightbooking.model.request;
 
+import com.flightbooking.model.enums.SeatPreference;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -18,5 +19,7 @@ public record BookingRequest(
 
         @NotNull(message = "Number of seats is required")
         @Min(value = 1, message = "Number of seats must be at least 1")
-        Integer numberOfSeats
+        Integer numberOfSeats,
+
+        SeatPreference seatPreference
 ) {}
