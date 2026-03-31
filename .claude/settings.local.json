@@ -4,7 +4,8 @@
       "Bash(git init:*)",
       "Bash(mvn archetype:generate -DgroupId=com.flightbooking -DartifactId=flight-booking -DarchetypeArtifactId=maven-archetype-quickstart -DarchetypeVersion=1.4 -DinteractiveMode=false)",
       "Bash(/usr/libexec/java_home -V 2>&1)",
-      "Bash(export JAVA_HOME=/Library/Java/JavaVirtualMachines/amazon-corretto-17.jdk/Contents/Home)"
+      "Bash(export JAVA_HOME=/Library/Java/JavaVirtualMachines/amazon-corretto-17.jdk/Contents/Home)",
+      "Bash(git rm:*)"
     ]
   }
 }
