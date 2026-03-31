@@ -1,0 +1,579 @@
+openapi: 3.0.3
+info:
+  title: Flight Ticket Booking API
+  description: REST API for booking flight tickets with seat allocation, payment processing, and concurrency-safe operations.
+  version: 1.0.0
+  contact:
+    name: Flight Booking Team
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+tags:
+  - name: Bookings
+    description: Flight booking operations
+  - name: Flights
+    description: Flight management operations
+  - name: Payments
+    description: Payment processing operations
+
+paths:
+  /api/v1/bookings:
+    post:
+      tags: [Bookings]
+      summary: Book seats on a flight
+      operationId: createBooking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingRequest'
+            examples:
+              successfulBooking:
+                summary: Successful booking
+                value:
+                  flightNumber: "EK502"
+                  passengerName: "John Doe"
+                  passengerEmail: "john@example.com"
+                  numberOfSeats: 2
+                  seatPreference: "WINDOW"
+              bookingWithoutPreference:
+                summary: Booking without seat preference
+                value:
+                  flightNumber: "SG101"
+                  passengerName: "Jane Smith"
+                  passengerEmail: "jane@example.com"
+                  numberOfSeats: 1
+              invalidFlightBooking:
+                summary: Non-existent flight
+                value:
+                  flightNumber: "EK999"
+                  passengerName: "John Doe"
+                  passengerEmail: "john@example.com"
+                  numberOfSeats: 1
+              insufficientSeatsBooking:
+                summary: Too many seats requested
+                value:
+                  flightNumber: "6E205"
+                  passengerName: "Bob Wilson"
+                  passengerEmail: "bob@example.com"
+                  numberOfSeats: 10
+              invalidInput:
+                summary: Missing required fields
+                value:
+                  flightNumber: ""
+                  passengerName: ""
+                  passengerEmail: "not-an-email"
+                  numberOfSeats: 0
+      responses:
+        '201':
+          description: Booking created successfully
+          headers:
+            Location:
+              schema:
+                type: string
+              example: /api/v1/bookings/550e8400-e29b-41d4-a716-446655440000
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+              examples:
+                successfulBooking:
+                  summary: Successful booking response
+                  value:
+                    bookingId: "550e8400-e29b-41d4-a716-446655440000"
+                    flightNumber: "EK502"
+                    passengerName: "John Doe"
+                    passengerEmail: "john@example.com"
+                    numberOfSeats: 2
+                    allocatedSeats: ["1C", "1D"]
+                    totalPrice: 50000.00
+                    bookingTime: "2026-03-31T10:30:00"
+                    status: "PENDING_PAYMENT"
+                    paymentId: null
+                    paymentDeadline: "2026-03-31T10:45:00"
+        '400':
+          description: Invalid input / validation errors
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                validationError:
+                  summary: Field validation errors
+                  value:
+                    timestamp: "2026-03-31T10:30:00"
+                    status: 400
+                    error: "Bad Request"
+                    message: "Validation failed: Flight number is required; Passenger name is required; Number of seats must be at least 1"
+                    path: "/api/v1/bookings"
+        '404':
+          description: Flight not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                flightNotFound:
+                  summary: Flight does not exist
+                  value:
+                    timestamp: "2026-03-31T10:30:00"
+                    status: 404
+                    error: "Not Found"
+                    message: "Flight not found: EK999"
+                    path: "/api/v1/bookings"
+        '409':
+          description: Conflict - insufficient seats or duplicate booking
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                insufficientSeats:
+                  summary: Not enough seats available
+                  value:
+                    timestamp: "2026-03-31T10:30:00"
+                    status: 409
+                    error: "Conflict"
+                    message: "Insufficient seats: requested 10, available 4"
+                    path: "/api/v1/bookings"
+                duplicateBooking:
+                  summary: Passenger already booked on this flight
+                  value:
+                    timestamp: "2026-03-31T10:30:00"
+                    status: 409
+                    error: "Conflict"
+                    message: "Duplicate booking: passenger already booked on this flight"
+                    path: "/api/v1/bookings"
+
+  /api/v1/bookings/{bookingId}/payments:
+    post:
+      tags: [Payments]
+      summary: Process payment for a booking
+      operationId: processPayment
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentRequest'
+            examples:
+              upiPayment:
+                summary: Pay via UPI
+                value:
+                  paymentMethod: "UPI"
+                  upiId: "john@upi"
+              cardPayment:
+                summary: Pay via Card
+                value:
+                  paymentMethod: "CARD"
+                  cardNumber: "4111111111111111"
+              giftCardPayment:
+                summary: Pay via Gift Card
+                value:
+                  paymentMethod: "GIFT_CARD"
+                  giftCardCode: "GIFT-2026-ABCDEF"
+      responses:
+        '200':
+          description: Payment processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+              examples:
+                successfulUpiPayment:
+                  summary: Successful UPI payment
+                  value:
+                    paymentId: "660e8400-e29b-41d4-a716-446655440000"
+                    bookingId: "550e8400-e29b-41d4-a716-446655440000"
+                    amount: 50000.00
+                    paymentMethod: "UPI"
+                    paymentStatus: "SUCCESS"
+                    transactionReference: "TXN-UPI-1234567890"
+                    bookingStatus: "CONFIRMED"
+                    processedAt: "2026-03-31T10:35:00"
+        '400':
+          description: Payment processing error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                paymentError:
+                  summary: Payment validation failed
+                  value:
+                    timestamp: "2026-03-31T10:35:00"
+                    status: 400
+                    error: "Bad Request"
+                    message: "Payment method is required"
+                    path: "/api/v1/bookings/550e8400-e29b-41d4-a716-446655440000/payments"
+        '404':
+          description: Booking not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                bookingNotFound:
+                  summary: Booking does not exist
+                  value:
+                    timestamp: "2026-03-31T10:35:00"
+                    status: 404
+                    error: "Not Found"
+                    message: "Booking not found"
+                    path: "/api/v1/bookings/550e8400-e29b-41d4-a716-446655440000/payments"
+        '410':
+          description: Booking has expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                bookingExpired:
+                  summary: Payment deadline passed
+                  value:
+                    timestamp: "2026-03-31T11:00:00"
+                    status: 410
+                    error: "Gone"
+                    message: "Booking has expired"
+                    path: "/api/v1/bookings/550e8400-e29b-41d4-a716-446655440000/payments"
+
+  /api/v1/flights:
+    post:
+      tags: [Flights]
+      summary: Add a new flight
+      operationId: createFlight
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlightRequest'
+            examples:
+              newFlight:
+                summary: Add a new flight
+                value:
+                  flightNumber: "BA143"
+                  airline: "British Airways"
+                  origin: "Mumbai"
+                  destination: "London"
+                  departureTime: "2026-05-01T10:00:00"
+                  arrivalTime: "2026-05-01T16:30:00"
+                  totalSeats: 180
+                  pricePerSeat: 55000.00
+              duplicateFlight:
+                summary: Duplicate flight number
+                value:
+                  flightNumber: "EK502"
+                  airline: "Emirates"
+                  origin: "Mumbai"
+                  destination: "Dubai"
+                  departureTime: "2026-05-01T06:00:00"
+                  arrivalTime: "2026-05-01T08:30:00"
+                  totalSeats: 30
+                  pricePerSeat: 25000.00
+      responses:
+        '201':
+          description: Flight created successfully
+          headers:
+            Location:
+              schema:
+                type: string
+              example: /api/v1/flights/BA143
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlightResponse'
+              examples:
+                newFlight:
+                  summary: Created flight response
+                  value:
+                    flightNumber: "BA143"
+                    airline: "British Airways"
+                    origin: "Mumbai"
+                    destination: "London"
+                    departureTime: "2026-05-01T10:00:00"
+                    arrivalTime: "2026-05-01T16:30:00"
+                    totalSeats: 180
+                    availableSeats: 180
+                    pricePerSeat: 55000.00
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                validationError:
+                  summary: Missing required fields
+                  value:
+                    timestamp: "2026-03-31T10:30:00"
+                    status: 400
+                    error: "Bad Request"
+                    message: "Validation failed: Flight number is required; Airline is required"
+                    path: "/api/v1/flights"
+        '409':
+          description: Flight already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                duplicateFlight:
+                  summary: Flight number already in use
+                  value:
+                    timestamp: "2026-03-31T10:30:00"
+                    status: 409
+                    error: "Conflict"
+                    message: "Flight already exists: EK502"
+                    path: "/api/v1/flights"
+
+components:
+  schemas:
+    BookingRequest:
+      type: object
+      required:
+        - flightNumber
+        - passengerName
+        - passengerEmail
+        - numberOfSeats
+      properties:
+        flightNumber:
+          type: string
+          description: Flight number to book
+          example: "EK502"
+        passengerName:
+          type: string
+          description: Full name of the passenger
+          example: "John Doe"
+        passengerEmail:
+          type: string
+          format: email
+          description: Email address of the passenger
+          example: "john@example.com"
+        numberOfSeats:
+          type: integer
+          minimum: 1
+          description: Number of seats to book
+          example: 2
+        seatPreference:
+          type: string
+          enum: [WINDOW, MIDDLE, AISLE]
+          description: Optional seat preference
+          example: "WINDOW"
+          nullable: true
+
+    BookingResponse:
+      type: object
+      properties:
+        bookingId:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        flightNumber:
+          type: string
+          example: "EK502"
+        passengerName:
+          type: string
+          example: "John Doe"
+        passengerEmail:
+          type: string
+          format: email
+          example: "john@example.com"
+        numberOfSeats:
+          type: integer
+          example: 2
+        allocatedSeats:
+          type: array
+          items:
+            type: string
+          example: ["1C", "1D"]
+        totalPrice:
+          type: number
+          format: double
+          example: 50000.00
+        bookingTime:
+          type: string
+          format: date-time
+          example: "2026-03-31T10:30:00"
+        status:
+          type: string
+          enum: [PENDING_PAYMENT, CONFIRMED, PAYMENT_FAILED, CANCELLED]
+          example: "PENDING_PAYMENT"
+        paymentId:
+          type: string
+          format: uuid
+          nullable: true
+          example: null
+        paymentDeadline:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-03-31T10:45:00"
+
+    FlightRequest:
+      type: object
+      required:
+        - flightNumber
+        - airline
+        - origin
+        - destination
+        - departureTime
+        - arrivalTime
+        - totalSeats
+        - pricePerSeat
+      properties:
+        flightNumber:
+          type: string
+          example: "BA143"
+        airline:
+          type: string
+          example: "British Airways"
+        origin:
+          type: string
+          example: "Mumbai"
+        destination:
+          type: string
+          example: "London"
+        departureTime:
+          type: string
+          format: date-time
+          example: "2026-05-01T10:00:00"
+        arrivalTime:
+          type: string
+          format: date-time
+          example: "2026-05-01T16:30:00"
+        totalSeats:
+          type: integer
+          minimum: 1
+          example: 180
+        pricePerSeat:
+          type: number
+          format: double
+          example: 55000.00
+
+    FlightResponse:
+      type: object
+      properties:
+        flightNumber:
+          type: string
+          example: "BA143"
+        airline:
+          type: string
+          example: "British Airways"
+        origin:
+          type: string
+          example: "Mumbai"
+        destination:
+          type: string
+          example: "London"
+        departureTime:
+          type: string
+          format: date-time
+          example: "2026-05-01T10:00:00"
+        arrivalTime:
+          type: string
+          format: date-time
+          example: "2026-05-01T16:30:00"
+        totalSeats:
+          type: integer
+          example: 180
+        availableSeats:
+          type: integer
+          format: int64
+          example: 180
+        pricePerSeat:
+          type: number
+          format: double
+          example: 55000.00
+
+    PaymentRequest:
+      type: object
+      required:
+        - paymentMethod
+      properties:
+        paymentMethod:
+          type: string
+          enum: [UPI, CARD, GIFT_CARD]
+          description: Payment method to use
+          example: "UPI"
+        upiId:
+          type: string
+          description: UPI ID (required if paymentMethod is UPI)
+          example: "john@upi"
+          nullable: true
+        cardNumber:
+          type: string
+          description: Card number (required if paymentMethod is CARD)
+          example: "4111111111111111"
+          nullable: true
+        giftCardCode:
+          type: string
+          description: Gift card code (required if paymentMethod is GIFT_CARD)
+          example: "GIFT-2026-ABCDEF"
+          nullable: true
+
+    PaymentResponse:
+      type: object
+      properties:
+        paymentId:
+          type: string
+          format: uuid
+          example: "660e8400-e29b-41d4-a716-446655440000"
+        bookingId:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        amount:
+          type: number
+          format: double
+          example: 50000.00
+        paymentMethod:
+          type: string
+          enum: [UPI, CARD, GIFT_CARD]
+          example: "UPI"
+        paymentStatus:
+          type: string
+          enum: [PENDING, SUCCESS, FAILED]
+          example: "SUCCESS"
+        transactionReference:
+          type: string
+          example: "TXN-UPI-1234567890"
+        bookingStatus:
+          type: string
+          enum: [PENDING_PAYMENT, CONFIRMED, PAYMENT_FAILED, CANCELLED]
+          example: "CONFIRMED"
+        processedAt:
+          type: string
+          format: date-time
+          example: "2026-03-31T10:35:00"
+
+    ErrorResponse:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-03-31T10:30:00"
+        status:
+          type: integer
+          example: 400
+        error:
+          type: string
+          example: "Bad Request"
+        message:
+          type: string
+          example: "Validation failed"
+        path:
+          type: string
+          example: "/api/v1/bookings"
