@@ -199,4 +199,54 @@ class PaymentServiceImplTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Invalid gift card code");
     }
+
+    @Test
+    void processPayment_paymentFailed_throws() {
+        pendingBooking.setStatus(BookingStatus.PAYMENT_FAILED);
+        when(bookingRepository.findByBookingId(bookingId)).thenReturn(Optional.of(pendingBooking));
+
+        PaymentRequest request = new PaymentRequest(PaymentMethod.UPI, "user@upi", null, null);
+
+        assertThatThrownBy(() -> paymentService.processPayment(bookingId, request))
+                .isInstanceOf(PaymentException.class)
+                .hasMessageContaining("payment has failed");
+    }
+
+    @Test
+    void processPayment_responseContainsCorrectBookingId() {
+        when(bookingRepository.findByBookingId(bookingId)).thenReturn(Optional.of(pendingBooking));
+        when(paymentRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(bookingRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        PaymentRequest request = new PaymentRequest(PaymentMethod.UPI, "user@upi", null, null);
+        PaymentResponse response = paymentService.processPayment(bookingId, request);
+
+        assertThat(response.bookingId()).isEqualTo(bookingId);
+        assertThat(response.paymentId()).isNotNull();
+        assertThat(response.processedAt()).isNotNull();
+    }
+
+    @Test
+    void processPayment_amountMatchesBookingTotalPrice() {
+        when(bookingRepository.findByBookingId(bookingId)).thenReturn(Optional.of(pendingBooking));
+        when(paymentRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(bookingRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        PaymentRequest request = new PaymentRequest(PaymentMethod.CARD, null, "4111111111111111", null);
+        PaymentResponse response = paymentService.processPayment(bookingId, request);
+
+        assertThat(response.amount()).isEqualByComparingTo(pendingBooking.getTotalPrice());
+        assertThat(response.paymentMethod()).isEqualTo(PaymentMethod.CARD);
+    }
+
+    @Test
+    void processPayment_upiInvalidFormat_throws() {
+        when(bookingRepository.findByBookingId(bookingId)).thenReturn(Optional.of(pendingBooking));
+
+        PaymentRequest request = new PaymentRequest(PaymentMethod.UPI, "no-at-symbol", null, null);
+
+        assertThatThrownBy(() -> paymentService.processPayment(bookingId, request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid UPI ID format");
+    }
 }

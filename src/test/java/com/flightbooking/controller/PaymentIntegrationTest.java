@@ -136,4 +136,72 @@ class PaymentIntegrationTest {
                         .content("{\"upiId\": \"user@upi\"}"))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    void payment_invalidUpiFormat_returns400() throws Exception {
+        String bookingId = createBookingAndGetId("SG101", "bad-upi-fmt@test.com");
+
+        PaymentRequest payReq = new PaymentRequest(PaymentMethod.UPI, "nope-no-at", null, null);
+        mockMvc.perform(post("/api/v1/bookings/" + bookingId + "/payments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payReq)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Invalid UPI ID format"));
+    }
+
+    @Test
+    void payment_giftCardEmptyCode_returns400() throws Exception {
+        String bookingId = createBookingAndGetId("SG101", "empty-gc@test.com");
+
+        PaymentRequest payReq = new PaymentRequest(PaymentMethod.GIFT_CARD, null, null, "");
+        mockMvc.perform(post("/api/v1/bookings/" + bookingId + "/payments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payReq)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Gift card code is required for gift card payment"));
+    }
+
+    @Test
+    void payment_cardWithSpaces_succeeds() throws Exception {
+        String bookingId = createBookingAndGetId("SG101", "card-spaces@test.com");
+
+        PaymentRequest payReq = new PaymentRequest(PaymentMethod.CARD, null, "4111 1111 1111 1111", null);
+        mockMvc.perform(post("/api/v1/bookings/" + bookingId + "/payments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payReq)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paymentStatus").value("SUCCESS"))
+                .andExpect(jsonPath("$.transactionReference").exists());
+    }
+
+    @Test
+    void fullFlow_bookingStatusIsPendingBeforePayment() throws Exception {
+        BookingRequest bookingReq = new BookingRequest("SG101", "Status Check", "status-chk@test.com", 1, null);
+        mockMvc.perform(post("/api/v1/bookings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(bookingReq)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("PENDING_PAYMENT"))
+                .andExpect(jsonPath("$.paymentDeadline").exists())
+                .andExpect(jsonPath("$.paymentId").doesNotExist());
+    }
+
+    @Test
+    void fullFlow_paymentResponseContainsAllFields() throws Exception {
+        String bookingId = createBookingAndGetId("SG101", "all-fields@test.com");
+
+        PaymentRequest payReq = new PaymentRequest(PaymentMethod.UPI, "user@okbank", null, null);
+        mockMvc.perform(post("/api/v1/bookings/" + bookingId + "/payments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payReq)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paymentId").exists())
+                .andExpect(jsonPath("$.bookingId").value(bookingId))
+                .andExpect(jsonPath("$.amount").isNumber())
+                .andExpect(jsonPath("$.paymentMethod").value("UPI"))
+                .andExpect(jsonPath("$.paymentStatus").value("SUCCESS"))
+                .andExpect(jsonPath("$.bookingStatus").value("CONFIRMED"))
+                .andExpect(jsonPath("$.transactionReference").exists())
+                .andExpect(jsonPath("$.processedAt").exists());
+    }
 }
