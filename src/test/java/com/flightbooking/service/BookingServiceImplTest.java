@@ -73,9 +73,9 @@ class BookingServiceImplTest {
                 .bookingId(bookingId).flightNumber("EK502").passengerName("John Doe")
                 .passengerEmail("john@example.com").numberOfSeats(2).allocatedSeats(seats)
                 .totalPrice(new BigDecimal("50000.00")).bookingTime(LocalDateTime.now())
-                .status(BookingStatus.CONFIRMED).build();
+                .status(BookingStatus.PENDING_PAYMENT).build();
         BookingResponse expectedResponse = new BookingResponse(bookingId, "EK502", "John Doe",
-                "john@example.com", 2, seats, new BigDecimal("50000.00"), booking.getBookingTime(), BookingStatus.CONFIRMED);
+                "john@example.com", 2, seats, new BigDecimal("50000.00"), booking.getBookingTime(), BookingStatus.PENDING_PAYMENT, null, null);
 
         when(flightRepository.findByFlightNumber("EK502")).thenReturn(Optional.of(flight));
         when(bookingRepository.existsByEmailAndFlightNumber("john@example.com", "EK502")).thenReturn(false);
@@ -89,7 +89,7 @@ class BookingServiceImplTest {
         assertThat(result.bookingId()).isEqualTo(bookingId);
         assertThat(result.allocatedSeats()).containsExactly("1A", "1B");
         assertThat(result.totalPrice()).isEqualByComparingTo(new BigDecimal("50000.00"));
-        assertThat(result.status()).isEqualTo(BookingStatus.CONFIRMED);
+        assertThat(result.status()).isEqualTo(BookingStatus.PENDING_PAYMENT);
     }
 
     @Test
@@ -132,7 +132,7 @@ class BookingServiceImplTest {
         Booking booking = Booking.builder().bookingId(UUID.randomUUID()).flightNumber("EK502")
                 .passengerName("John").passengerEmail("john@example.com").numberOfSeats(2)
                 .allocatedSeats(seats).totalPrice(new BigDecimal("50000.00"))
-                .bookingTime(LocalDateTime.now()).status(BookingStatus.CONFIRMED).build();
+                .bookingTime(LocalDateTime.now()).status(BookingStatus.PENDING_PAYMENT).build();
 
         when(flightRepository.findByFlightNumber("EK502")).thenReturn(Optional.of(flight));
         when(bookingRepository.existsByEmailAndFlightNumber(anyString(), anyString())).thenReturn(false);
@@ -154,9 +154,9 @@ class BookingServiceImplTest {
         Booking booking = Booking.builder().bookingId(UUID.randomUUID()).flightNumber("EK502")
                 .passengerName("John").passengerEmail("john@example.com").numberOfSeats(2)
                 .allocatedSeats(seats).totalPrice(expectedPrice)
-                .bookingTime(LocalDateTime.now()).status(BookingStatus.CONFIRMED).build();
+                .bookingTime(LocalDateTime.now()).status(BookingStatus.PENDING_PAYMENT).build();
         BookingResponse response = new BookingResponse(booking.getBookingId(), "EK502", "John",
-                "john@example.com", 2, seats, expectedPrice, booking.getBookingTime(), BookingStatus.CONFIRMED);
+                "john@example.com", 2, seats, expectedPrice, booking.getBookingTime(), BookingStatus.PENDING_PAYMENT, null, null);
 
         when(flightRepository.findByFlightNumber("EK502")).thenReturn(Optional.of(flight));
         when(bookingRepository.existsByEmailAndFlightNumber(anyString(), anyString())).thenReturn(false);
@@ -177,9 +177,9 @@ class BookingServiceImplTest {
         Booking booking = Booking.builder().bookingId(bookingId).flightNumber("EK502")
                 .passengerName("John").passengerEmail("john@example.com").numberOfSeats(1)
                 .allocatedSeats(seats).totalPrice(new BigDecimal("25000.00"))
-                .bookingTime(LocalDateTime.now()).status(BookingStatus.CONFIRMED).build();
+                .bookingTime(LocalDateTime.now()).status(BookingStatus.PENDING_PAYMENT).build();
         BookingResponse response = new BookingResponse(bookingId, "EK502", "John",
-                "john@example.com", 1, seats, new BigDecimal("25000.00"), booking.getBookingTime(), BookingStatus.CONFIRMED);
+                "john@example.com", 1, seats, new BigDecimal("25000.00"), booking.getBookingTime(), BookingStatus.PENDING_PAYMENT, null, null);
 
         when(flightRepository.findByFlightNumber("EK502")).thenReturn(Optional.of(flight));
         when(bookingRepository.existsByEmailAndFlightNumber(anyString(), anyString())).thenReturn(false);
@@ -200,9 +200,9 @@ class BookingServiceImplTest {
         Booking booking = Booking.builder().bookingId(UUID.randomUUID()).flightNumber("EK502")
                 .passengerName("John").passengerEmail("john@example.com").numberOfSeats(3)
                 .allocatedSeats(seats).totalPrice(new BigDecimal("75000.00"))
-                .bookingTime(LocalDateTime.now()).status(BookingStatus.CONFIRMED).build();
+                .bookingTime(LocalDateTime.now()).status(BookingStatus.PENDING_PAYMENT).build();
         BookingResponse response = new BookingResponse(booking.getBookingId(), "EK502", "John",
-                "john@example.com", 3, seats, new BigDecimal("75000.00"), booking.getBookingTime(), BookingStatus.CONFIRMED);
+                "john@example.com", 3, seats, new BigDecimal("75000.00"), booking.getBookingTime(), BookingStatus.PENDING_PAYMENT, null, null);
 
         when(flightRepository.findByFlightNumber("EK502")).thenReturn(Optional.of(flight));
         when(bookingRepository.existsByEmailAndFlightNumber(anyString(), anyString())).thenReturn(false);

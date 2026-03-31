@@ -19,7 +19,9 @@ public class BookingMapper {
                 booking.getAllocatedSeats(),
                 booking.getTotalPrice(),
                 booking.getBookingTime(),
-                booking.getStatus()
+                booking.getStatus(),
+                booking.getPaymentId(),
+                booking.getPaymentDeadline()
         );
     }
 

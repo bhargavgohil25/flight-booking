@@ -64,7 +64,8 @@ public class BookingServiceImpl implements BookingService {
             Booking booking = bookingFactory.createBooking(request, flight, allocatedSeats);
             bookingRepository.save(booking);
 
-            log.info("Booking confirmed: {} on flight {} - seats {}", booking.getBookingId(), flightNumber, allocatedSeats);
+            log.info("Booking created (pending payment): {} on flight {} - seats {} - pay by {}",
+                    booking.getBookingId(), flightNumber, allocatedSeats, booking.getPaymentDeadline());
 
             return bookingMapper.toResponse(booking);
         } finally {

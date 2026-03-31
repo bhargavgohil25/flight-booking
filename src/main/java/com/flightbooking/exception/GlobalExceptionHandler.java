@@ -40,6 +40,30 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, ex.getMessage(), request);
     }
 
+    @ExceptionHandler(BookingNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleBookingNotFound(BookingNotFoundException ex, HttpServletRequest request) {
+        log.warn("Booking not found: {}", ex.getMessage());
+        return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(BookingExpiredException.class)
+    public ResponseEntity<ErrorResponse> handleBookingExpired(BookingExpiredException ex, HttpServletRequest request) {
+        log.warn("Booking expired: {}", ex.getMessage());
+        return buildResponse(HttpStatus.GONE, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(PaymentException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentError(PaymentException ex, HttpServletRequest request) {
+        log.warn("Payment error: {}", ex.getMessage());
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex, HttpServletRequest request) {
+        log.warn("Invalid argument: {}", ex.getMessage());
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
         String message = ex.getBindingResult().getFieldErrors().stream()

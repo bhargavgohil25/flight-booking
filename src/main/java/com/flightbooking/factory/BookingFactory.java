@@ -24,7 +24,8 @@ public class BookingFactory {
                 .allocatedSeats(allocatedSeats)
                 .totalPrice(flight.getPricePerSeat().multiply(BigDecimal.valueOf(request.numberOfSeats())))
                 .bookingTime(LocalDateTime.now())
-                .status(BookingStatus.CONFIRMED)
+                .status(BookingStatus.PENDING_PAYMENT)
+                .paymentDeadline(LocalDateTime.now().plusMinutes(10))
                 .build();
     }
 }

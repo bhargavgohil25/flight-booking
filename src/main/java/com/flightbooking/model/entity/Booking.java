@@ -26,4 +26,6 @@ public class Booking {
     private BigDecimal totalPrice;
     private LocalDateTime bookingTime;
     private BookingStatus status;
+    private UUID paymentId;
+    private LocalDateTime paymentDeadline;
 }

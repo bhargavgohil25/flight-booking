@@ -16,5 +16,7 @@ public record BookingResponse(
         List<String> allocatedSeats,
         BigDecimal totalPrice,
         LocalDateTime bookingTime,
-        BookingStatus status
+        BookingStatus status,
+        UUID paymentId,
+        LocalDateTime paymentDeadline
 ) {}

@@ -32,7 +32,8 @@ class BookingControllerIntegrationTest {
                 .andExpect(jsonPath("$.flightNumber").value("SG101"))
                 .andExpect(jsonPath("$.allocatedSeats").isArray())
                 .andExpect(jsonPath("$.allocatedSeats.length()").value(2))
-                .andExpect(jsonPath("$.status").value("CONFIRMED"));
+                .andExpect(jsonPath("$.status").value("PENDING_PAYMENT"))
+                .andExpect(jsonPath("$.paymentDeadline").exists());
     }
 
     @Test
