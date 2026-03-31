@@ -38,6 +38,20 @@ curl -X POST http://localhost:8080/api/v1/bookings \
   }'
 ```
 
+### Booking with Seat Preference (201 Created)
+```bash
+curl -X POST http://localhost:8080/api/v1/bookings \
+  -H "Content-Type: application/json" \
+  -d '{
+    "flightNumber": "EK502",
+    "passengerName": "Alice Smith",
+    "passengerEmail": "alice@example.com",
+    "numberOfSeats": 2,
+    "seatPreference": "WINDOW"
+  }'
+```
+Supported preferences: `WINDOW` (columns A, F), `AISLE` (columns C, D), `MIDDLE` (columns B, E). Preferred seats are assigned first; if not enough are available, remaining seats are filled from any available.
+
 ### Flight Not Found (404)
 ```bash
 curl -X POST http://localhost:8080/api/v1/bookings \
@@ -122,11 +136,18 @@ Each flight gets its own `ReentrantLock` stored in a `ConcurrentHashMap`. This p
 Request DTOs carry Jakarta validation annotations (`@NotBlank`, `@Email`, `@Min`). Response DTOs decouple the API contract from internal entities. `ErrorResponse` provides consistent error structure across all failure scenarios.
 
 ### Strategy Pattern for Seat Validation and Allocation
-Two real, meaningfully different allocation strategies:
+Three allocation strategies, each serving a different use case:
 - **SequentialSeatAllocationStrategy** (default) — assigns first N available seats in row order (1A, 1B, ...)
 - **RandomSeatAllocationStrategy** — shuffles available seats and picks N randomly
+- **PreferredSeatAllocationStrategy** — prioritizes seats matching a user's preference (WINDOW/AISLE/MIDDLE), falls back to any available when preferred seats are exhausted
 
-Both implement `SeatAllocationStrategy`, injected via constructor. `@Primary` on Sequential makes it the default; switch via `@Qualifier` or config. `SeatValidationStrategy` separates availability checking from allocation, making validation rules independently swappable.
+The default strategy (Sequential vs Random) is **config-driven** via `application.properties`:
+```properties
+booking.seat-allocation-strategy=sequential  # or "random"
+```
+Seat preference (WINDOW/AISLE/MIDDLE) is **user-driven** — passed as an optional field in the booking request. When a preference is provided, the service uses `PreferredSeatAllocationStrategy`; otherwise it uses the configured default.
+
+`SeatValidationStrategy` separates availability checking from allocation, making validation rules independently swappable.
 
 ### Factory for Booking Creation
 `BookingFactory` encapsulates UUID generation, price computation, timestamp setting, and status assignment. Keeps the service focused on orchestration rather than object construction.
@@ -137,7 +158,6 @@ Each seat has a label (e.g., "3C") and a status (`AVAILABLE`/`BOOKED`) in a `Lin
 ## What I'd Improve With More Time
 
 - Database persistence with Spring Data JPA + H2/PostgreSQL
-- Seat class preferences (window/aisle/middle preference passed in request, `SeatPreferenceStrategy`)
 - Booking cancellation and refund endpoints (mark seats back to `AVAILABLE`)
 - `GET /api/v1/bookings/{bookingId}` for retrieval
 - `GET /api/v1/flights/{flightNumber}/seats` for seat map visualization
